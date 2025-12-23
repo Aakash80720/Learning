@@ -12,6 +12,7 @@
     "retrieval_agent": "./apps/agents/src/retrieval-agent/graph.ts:graph"
   },
   "ui": {
+    "agent": "./apps/agents/src/gen-agent/ui.tsx",
     "gen_agent": "./apps/agents/src/gen-agent/ui.tsx"
   },
   "env": ".env"

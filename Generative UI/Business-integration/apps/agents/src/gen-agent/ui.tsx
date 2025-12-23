@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './styles.css';
 
 // Simple SVG icons to avoid lucide-react issues
@@ -71,6 +71,7 @@ interface WeatherData {
   humidity: number;
   windSpeed: number;
   icon: 'sunny' | 'cloudy' | 'rainy';
+  timestamp?: number; // Add timestamp for sorting
 }
 
 interface WeatherCarouselProps {
@@ -89,41 +90,92 @@ const defaultCities: WeatherData[] = [
     humidity: 65,
     windSpeed: 12,
     icon: 'cloudy',
+    timestamp: Date.now() - 86400000, // 1 day ago for default data
   },
 ];
 
 const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCities, searchCity }) => {
   // Use prop cities if provided, otherwise use default
-  const [cities, setCities] = useState<WeatherData[]>(propCities && propCities.length > 0 ? propCities : defaultCities);
+  const [cities, setCities] = useState<WeatherData[]>(() => {
+    const initialCities = propCities && propCities.length > 0 ? propCities : defaultCities;
+    // Add timestamps to prop cities if they don't have them
+    return initialCities.map((city, index) => ({
+      ...city,
+      timestamp: city.timestamp || (Date.now() - (index * 1000)) // Stagger timestamps if not present
+    }));
+  });
   const [searchTerm, setSearchTerm] = useState(searchCity || '');
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Function to sort cities by timestamp (newest first)
+  const getSortedCities = () => {
+    return [...cities].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  };
+
+  // Update cities when props change
+  useEffect(() => {
+    if (propCities && propCities.length > 0) {
+      const updatedCities = propCities.map((city) => ({
+        ...city,
+        timestamp: city.timestamp || Date.now()
+      }));
+      setCities(updatedCities);
+    }
+  }, [propCities]);
+
+  // Function to check if a city is recently searched (within last hour)
+  const isRecentlySearched = (timestamp?: number) => {
+    if (!timestamp) return false;
+    const oneHourAgo = Date.now() - (60 * 60 * 1000); // 1 hour in milliseconds
+    return timestamp > oneHourAgo;
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
-      const newCity: WeatherData = {
-        id: cities.length + 1,
-        city: searchTerm,
-        country: 'USA',
-        temp: Math.floor(Math.random() * 30) + 60,
-        condition: ['Sunny', 'Cloudy', 'Rainy'][Math.floor(Math.random() * 3)],
-        humidity: Math.floor(Math.random() * 40) + 40,
-        windSpeed: Math.floor(Math.random() * 15) + 5,
-        icon: ['sunny', 'cloudy', 'rainy'][
-          Math.floor(Math.random() * 3)
-        ] as WeatherData['icon'],
-      };
-      setCities([...cities, newCity]);
+      // Check if city already exists
+      const existingCityIndex = cities.findIndex(
+        city => city.city.toLowerCase() === searchTerm.trim().toLowerCase()
+      );
+      
+      if (existingCityIndex !== -1) {
+        // Update existing city with new timestamp to move it to top
+        const updatedCities = [...cities];
+        updatedCities[existingCityIndex] = {
+          ...updatedCities[existingCityIndex],
+          timestamp: Date.now()
+        };
+        setCities(updatedCities);
+      } else {
+        // Add new city with current timestamp
+        const newCity: WeatherData = {
+          id: cities.length + 1,
+          city: searchTerm.trim(),
+          country: 'USA',
+          temp: Math.floor(Math.random() * 30) + 60,
+          condition: ['Sunny', 'Cloudy', 'Rainy'][Math.floor(Math.random() * 3)],
+          humidity: Math.floor(Math.random() * 40) + 40,
+          windSpeed: Math.floor(Math.random() * 15) + 5,
+          icon: ['sunny', 'cloudy', 'rainy'][
+            Math.floor(Math.random() * 3)
+          ] as WeatherData['icon'],
+          timestamp: Date.now()
+        };
+        setCities([newCity, ...cities]);
+      }
       setSearchTerm('');
+      setCurrentIndex(0); // Reset to first slide to show newest
     }
   };
 
   const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % cities.length);
+    const sortedCities = getSortedCities();
+    setCurrentIndex((prev) => (prev + 1) % sortedCities.length);
   };
 
   const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + cities.length) % cities.length);
+    const sortedCities = getSortedCities();
+    setCurrentIndex((prev) => (prev - 1 + sortedCities.length) % sortedCities.length);
   };
 
   const getWeatherIcon = (icon: string) => {
@@ -152,20 +204,22 @@ const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCities, s
     }
   };
 
-  // Calculate visible cards (show 3 at a time on desktop)
+  // Calculate visible cards (show 3 at a time on desktop) - use sorted cities
   const getVisibleCities = () => {
-    if (cities.length <= 3) return cities;
+    const sortedCities = getSortedCities();
+    if (sortedCities.length <= 3) return sortedCities;
     const visible = [];
     for (let i = 0; i < 3; i++) {
-      const idx = (currentIndex + i) % cities.length;
-      visible.push(cities[idx]);
+      const idx = (currentIndex + i) % sortedCities.length;
+      visible.push(sortedCities[idx]);
     }
     return visible;
   };
 
   return (
-    <div className="weather-dashboard">
-      <div className="weather-container">
+    <div className="weather-component-wrapper">
+      <div className="weather-dashboard">
+        <div className="weather-container">
         {/* Header */}
         <div className="weather-header">
           <h1 className="weather-title">Weather Dashboard</h1>
@@ -182,7 +236,10 @@ const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCities, s
               placeholder="Search for a city..."
               className="search-input"
             />
-            <button type="submit" className="search-button">
+            <button 
+              type="submit" 
+              className="search-button"
+            >
               <SearchIcon />
             </button>
           </form>
@@ -190,8 +247,11 @@ const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCities, s
 
         {/* Weather Cards Carousel */}
         <div className="carousel-container">
-          {cities.length > 3 && (
-            <button onClick={prevSlide} className="carousel-button carousel-button-left">
+          {getSortedCities().length > 3 && (
+            <button 
+              onClick={prevSlide} 
+              className="carousel-button carousel-button-left"
+            >
               <ChevronLeftIcon />
             </button>
           )}
@@ -202,7 +262,12 @@ const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCities, s
                 <div className={`weather-card ${getBackgroundGradient(city.icon)}`}>
                   {/* City Name */}
                   <div className="card-header">
-                    <h2 className="city-name">{city.city}</h2>
+                    <h2 className="city-name">
+                      {city.city}
+                      {isRecentlySearched(city.timestamp) && (
+                        <span className="recent-badge">NEW</span>
+                      )}
+                    </h2>
                     <p className="country-name">{city.country}</p>
                   </div>
 
@@ -239,8 +304,11 @@ const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCities, s
             ))}
           </div>
 
-          {cities.length > 3 && (
-            <button onClick={nextSlide} className="carousel-button carousel-button-right">
+          {getSortedCities().length > 3 && (
+            <button 
+              onClick={nextSlide} 
+              className="carousel-button carousel-button-right"
+            >
               <ChevronRightIcon />
             </button>
           )}
@@ -248,7 +316,7 @@ const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCities, s
 
         {/* Dots indicator */}
         <div className="dots-container">
-          {cities.map((_, idx) => (
+          {getSortedCities().map((_, idx) => (
             <button
               key={idx}
               onClick={() => setCurrentIndex(idx)}
@@ -259,13 +327,21 @@ const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCities, s
 
         {/* Info Text */}
         <div className="info-text">
-          <p>Use navigation to browse weather in different cities</p>
+          <p>Recently searched cities appear first • Use navigation to browse all locations</p>
         </div>
       </div>
+    </div>
     </div>
   );
 };
 
-export default {
+// Component map type for TypeScript
+interface ComponentMap extends Record<string, React.ComponentType<any>> {
+  weather: React.FC<WeatherCarouselProps>;
+}
+
+const componentMap: ComponentMap = {
   weather: WeatherCarousel,
 };
+
+export default componentMap;

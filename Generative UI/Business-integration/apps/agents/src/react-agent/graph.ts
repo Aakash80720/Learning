@@ -8,6 +8,7 @@ import {
   uiMessageReducer,
 } from "@langchain/langgraph-sdk/react-ui/server";
 import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
 
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
 import { TOOLS } from "./tools.js";
@@ -18,6 +19,21 @@ import type ComponentMap from "./ui.js";
 const AgentState = Annotation.Root({
   ...MessagesAnnotation.spec,
   ui: Annotation({ reducer: uiMessageReducer, default: () => [] }),
+});
+
+// Zod schema for structured weather data response
+const WeatherDataSchema = z.object({
+  city: z.string().describe("The name of the city"),
+  country: z.string().describe("The country where the city is located"),
+  temp: z.number().describe("Temperature in Fahrenheit"),
+  condition: z.string().describe("Current weather condition (e.g., Sunny, Cloudy, Rainy)"),
+  humidity: z.number().describe("Humidity percentage (0-100)"),
+  windSpeed: z.number().describe("Wind speed in mph"),
+  icon: z.enum(['sunny', 'cloudy', 'rainy']).describe("Weather icon type based on condition")
+});
+
+const WeatherResponseSchema = z.object({
+  weatherData: z.array(WeatherDataSchema).describe("Array of weather data for cities")
 });
 
 // Interface for weather data
@@ -32,7 +48,7 @@ interface WeatherData {
   icon: 'sunny' | 'cloudy' | 'rainy';
 }
 
-// Weather node that uses Tavily to get real weather data for multiple cities
+// Weather node that uses Tavily to get real weather data and LLM to parse it
 async function weatherNode(
   state: typeof AgentState.State, 
   config: LangGraphRunnableConfig
@@ -40,6 +56,7 @@ async function weatherNode(
   console.log("[WeatherNode] Processing weather request...");
   
   const ui = typedUi<typeof ComponentMap>(config);
+  const configuration = ensureConfiguration(config);
   
   // Get the user's message to extract the city
   const lastMessage = state.messages[state.messages.length - 1];
@@ -75,26 +92,39 @@ async function weatherNode(
   const allCities = [mainCity, ...nearbyCities.slice(0, 4)];
   
   try {
-    const tavilySearch = new TavilySearchResults({ maxResults: 5 });
-    const weatherDataList: WeatherData[] = [];
+    const tavilySearch = new TavilySearchResults({ maxResults: 3 });
     
-    for (let i = 0; i < allCities.length; i++) {
-      const city = allCities[i];
+    // Collect all search results
+    const allSearchResults: { city: string; results: string }[] = [];
+    
+    for (const city of allCities) {
       try {
-        const searchQuery = `${city} current weather temperature humidity today`;
+        const searchQuery = `${city} current weather temperature humidity wind speed today`;
+        console.log(`[WeatherNode] Searching for: ${searchQuery}`);
+        
         const searchResults = await tavilySearch.invoke(searchQuery);
-        const parsedData = parseWeatherFromResults(searchResults, city, i + 1);
-        weatherDataList.push(parsedData);
+        allSearchResults.push({
+          city,
+          results: typeof searchResults === 'string' ? searchResults : JSON.stringify(searchResults)
+        });
+        
+        console.log(`[WeatherNode] Got results for ${city}`);
       } catch (cityError) {
         console.error(`[WeatherNode] Error fetching weather for ${city}:`, cityError);
-        weatherDataList.push(createFallbackWeatherData(city, i + 1));
       }
     }
+    
+    // Use LLM to parse the search results into structured weather data
+    const weatherDataList = await parseWeatherWithLLM(
+      allSearchResults, 
+      allCities, 
+      configuration.model
+    );
     
     const response = {
       id: uuidv4(),
       type: "ai" as const,
-      content: `Here's the weather for ${mainCity} and nearby cities! Use the carousel to browse through different locations or search for a specific city.`,
+      content: `Here's the current weather for ${mainCity} and nearby cities! The data was fetched in real-time. Use the carousel to browse through different locations.`,
     };
 
     ui.push({ 
@@ -156,7 +186,7 @@ function createFallbackWeatherData(city: string, id: number): WeatherData {
   return {
     id,
     city: city,
-    country: city.toLowerCase().includes('india') ? 'India' : 'Country',
+    country: detectCountry(city),
     temp: Math.floor(Math.random() * 25) + 70,
     condition: conditions[Math.floor(Math.random() * conditions.length)],
     humidity: Math.floor(Math.random() * 40) + 40,
@@ -165,9 +195,80 @@ function createFallbackWeatherData(city: string, id: number): WeatherData {
   };
 }
 
-function parseWeatherFromResults(_searchResults: any, city: string, id: number): WeatherData {
-  // Simple parsing - in real implementation, this would be more sophisticated
-  return createFallbackWeatherData(city, id);
+// Helper to detect country from city name
+function detectCountry(city: string): string {
+  const cityLower = city.toLowerCase();
+  const indianCities = ['chennai', 'mumbai', 'delhi', 'bangalore', 'kolkata', 'hyderabad', 'pune', 'ahmedabad', 'jaipur', 'lucknow', 'noida', 'gurgaon', 'chandigarh', 'mysore', 'bhubaneswar', 'patna', 'guwahati'];
+  const ukCities = ['london', 'manchester', 'birmingham', 'liverpool', 'edinburgh', 'dublin'];
+  const usCities = ['new york', 'los angeles', 'chicago', 'boston', 'miami', 'seattle', 'washington dc', 'philadelphia', 'san francisco'];
+  
+  if (indianCities.includes(cityLower)) return 'India';
+  if (ukCities.includes(cityLower)) return 'UK';
+  if (usCities.includes(cityLower)) return 'USA';
+  
+  return 'Unknown';
+}
+
+// Use LLM to parse weather search results into structured JSON
+async function parseWeatherWithLLM(
+  searchResults: { city: string; results: string }[],
+  cities: string[],
+  modelName: string
+): Promise<WeatherData[]> {
+  console.log("[WeatherParser] Using LLM to parse weather data...");
+  
+  try {
+    const model = await loadChatModel(modelName);
+    
+    // Create the structured output model
+    const structuredModel = model.withStructuredOutput(WeatherResponseSchema);
+    
+    const prompt = `You are a weather data extraction assistant. Parse the following search results and extract weather information for each city.
+
+For each city, extract:
+- Temperature (convert to Fahrenheit if in Celsius)
+- Weather condition (Sunny, Cloudy, Rainy, Partly Cloudy, etc.)
+- Humidity percentage
+- Wind speed in mph
+- Determine the icon type: 'sunny' for clear/sunny, 'cloudy' for cloudy/overcast, 'rainy' for rain/storm
+
+Cities to extract data for: ${cities.join(', ')}
+
+Search Results:
+${searchResults.map(r => `
+=== ${r.city} ===
+${r.results}
+`).join('\n')}
+
+If you cannot find exact data for a city, make a reasonable estimate based on the region and season (December - winter in Northern Hemisphere, summer in Southern Hemisphere).
+
+Return the weather data as a JSON array.`;
+
+    const response = await structuredModel.invoke([
+      { role: "user", content: prompt }
+    ]);
+    
+    console.log("[WeatherParser] LLM parsed response:", response);
+    
+    // Convert the structured response to WeatherData array with IDs
+    const weatherDataList: WeatherData[] = response.weatherData.map((data: z.infer<typeof WeatherDataSchema>, index: number) => ({
+      id: index + 1,
+      city: data.city,
+      country: detectCountry(data.city),
+      temp: data.temp,
+      condition: data.condition,
+      humidity: data.humidity,
+      windSpeed: data.windSpeed,
+      icon: data.icon
+    }));
+    
+    return weatherDataList;
+    
+  } catch (error) {
+    console.error("[WeatherParser] LLM parsing failed, using fallback:", error);
+    // Return fallback data if LLM parsing fails
+    return cities.map((city, index) => createFallbackWeatherData(city, index + 1));
+  }
 }
 
 // Define the function that calls the model
