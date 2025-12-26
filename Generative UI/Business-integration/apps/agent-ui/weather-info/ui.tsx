@@ -74,7 +74,7 @@ interface WeatherData {
   timestamp?: number; // Add timestamp for sorting
 }
 
-interface WeatherCarouselProps {
+export interface WeatherCarouselProps {
   cities?: WeatherData[];
   searchCity?: string;
 }
@@ -94,7 +94,7 @@ const defaultCities: WeatherData[] = [
   },
 ];
 
-const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCities, searchCity }) => {
+export const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCities, searchCity }) => {
   // Use prop cities if provided, otherwise use default
   const [cities, setCities] = useState<WeatherData[]>(() => {
     const initialCities = propCities && propCities.length > 0 ? propCities : defaultCities;
@@ -324,24 +324,9 @@ const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCities, s
             />
           ))}
         </div>
-
-        {/* Info Text */}
-        <div className="info-text">
-          <p>Recently searched cities appear first • Use navigation to browse all locations</p>
-        </div>
       </div>
     </div>
     </div>
   );
 };
 
-// Component map type for TypeScript
-interface ComponentMap extends Record<string, React.ComponentType<any>> {
-  weather: React.FC<WeatherCarouselProps>;
-}
-
-const componentMap: ComponentMap = {
-  weather: WeatherCarousel,
-};
-
-export default componentMap;

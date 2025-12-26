@@ -5,7 +5,7 @@ import {
 
 import { v4 as uuidv4 } from "uuid";
 
-import componentMap from "./ui.js";
+import {componentMap} from '../../../agent-ui/index.js';
 
 import {
   Annotation,
@@ -36,6 +36,7 @@ const AgentState = Annotation.Root({
   ui: Annotation({ reducer: uiMessageReducer, default: () => [] }),
   intent: Annotation<string>({ reducer: (_, y) => y, default: () => "" }),
   extractedCity: Annotation<string>({ reducer: (_, y) => y, default: () => "" }),
+  extractedTopic: Annotation<string>({ reducer: (_, y) => y, default: () => "" }),
 });
 
 // Zod schema for structured weather data response
@@ -795,10 +796,12 @@ IMPORTANT: Always include all fields. Use null (not undefined) for missing value
     
     // Extract city from classification or fallback to dynamic extraction
     const extractedCity = classification.extractedEntities.city || await extractCityFromMessage(userMessage, config);
+    const extractedTopic = classification.extractedEntities.topic || "";
     
     return {
       intent: classification.intent,
-      extractedCity: extractedCity
+      extractedCity: extractedCity,
+      extractedTopic: extractedTopic
     };
     
   } catch (error) {
@@ -806,32 +809,351 @@ IMPORTANT: Always include all fields. Use null (not undefined) for missing value
     
     // Fallback to keyword-based classification
     const weatherKeywords = ["weather", "temperature", "forecast", "climate", "sunny", "rainy", "cloudy", "cold", "hot", "degrees"];
+    const newsKeywords = ["news", "videos", "video", "latest", "recent", "breaking", "trending", "show me", "find", "search", "youtube"];
+    const entertainmentKeywords = ["watch", "play", "song", "movie", "music", "trailer", "listen", "album", "singer", "actor", "film"];
+    
+    const lowerMessage = userMessage.toLowerCase();
+    
     const isWeatherQuery = weatherKeywords.some(keyword => 
-      userMessage.toLowerCase().includes(keyword)
+      lowerMessage.includes(keyword)
+    );
+    const isNewsQuery = newsKeywords.some(keyword => 
+      lowerMessage.includes(keyword)
+    );
+    const isEntertainmentQuery = entertainmentKeywords.some(keyword => 
+      lowerMessage.includes(keyword)
     );
     
+    let intent = "general";
+    if (isWeatherQuery) intent = "weather";
+    else if (isNewsQuery || isEntertainmentQuery) intent = "news"; // Entertainment goes to news (video search)
+    
     return {
-      intent: isWeatherQuery ? "weather" : "general",
-      extractedCity: await extractCityFromMessage(userMessage, config)
+      intent: intent,
+      extractedCity: await extractCityFromMessage(userMessage, config),
+      extractedTopic: (intent === "news") ? extractSearchTopic(userMessage) : ""
     };
   }
 }
 
+async function plannerNode(
+  state: typeof AgentState.State,
+  config: LangGraphRunnableConfig
+) {
+  console.log("[PlannerNode] Planning next action based on intent...");
+  
+  const route = routeAfterClassification(state);
+  console.log("[PlannerNode] Planned route:", route);
+  
+  return { nextNode: route };
+}
+
 // Router function that uses the classified intent from state
-function routeAfterClassification(state: typeof AgentState.State): "weather" | "general" {
+function routeAfterClassification(state: typeof AgentState.State): "weather" | "news" | "general" | "plan" {
   const intent = state.intent;
   console.log("[Router] Routing based on classified intent:", intent);
+  
+  // Get the last user message for additional checks
+  const lastMessage = state.messages[state.messages.length - 1];
+  let userMessage = "";
+  if (typeof lastMessage?.content === "string") {
+    userMessage = lastMessage.content.toLowerCase();
+  } else if (Array.isArray(lastMessage?.content)) {
+    userMessage = lastMessage.content
+      .filter(item => item.type === "text")
+      .map(item => (item as any).text || "")
+      .join(" ")
+      .toLowerCase();
+  }
+  
+  // Force route to news for entertainment queries even if misclassified
+  const entertainmentTriggers = ["watch", "play", "song", "movie", "music", "trailer", "film", "video"];
+  const hasEntertainmentTrigger = entertainmentTriggers.some(trigger => userMessage.includes(trigger));
+  
+  if (hasEntertainmentTrigger && intent !== "weather") {
+    console.log("[Router] Detected entertainment content, routing to news");
+    return "news";
+  }
   
   if (intent === "weather") {
     return "weather";
   }
   
-  // For now, route all other intents to general
-  // You can add more nodes for news, sports, finance later
+  if (intent === "news") {
+    return "news";
+  }
+
+  if (intent === "plan") {
+    return "plan";
+  }
+
+  // Route all other intents to general
   return "general";
 }
 
-// General response node for non-weather queries
+// News node for video/news queries
+async function newsNode(state: typeof AgentState.State, config: LangGraphRunnableConfig) {
+  console.log("[NewsNode] Processing news request...");
+  
+  const lastMessage = state.messages[state.messages.length - 1];
+  let userMessage = "";
+  
+  if (typeof lastMessage?.content === "string") {
+    userMessage = lastMessage.content;
+  } else if (Array.isArray(lastMessage?.content)) {
+    userMessage = lastMessage.content
+      .filter(item => item.type === "text")
+      .map(item => (item as any).text || "")
+      .join(" ");
+  }
+  
+  const ui = typedUi<typeof componentMap>(config);
+  
+  try {
+    // Use the extracted topic from classification, or extract from message
+    let searchTopic = state.extractedTopic;
+    
+    // If no topic extracted, use the full message processing
+    if (!searchTopic || searchTopic.trim() === "") {
+      searchTopic = extractSearchTopic(userMessage);
+    }
+    
+    console.log("[NewsNode] Searching for videos about:", searchTopic);
+    
+    // Search for YouTube videos using Tavily
+    const videoData = await searchYouTubeVideos(searchTopic);
+    console.log("[NewsNode] Found videos:", videoData.length);
+    
+    if (videoData.length > 0) {
+      const response = {
+        id: uuidv4(),
+        type: "ai" as const,
+        content: `Here are the latest videos about "${searchTopic}":`,
+      };
+
+      ui.push({ 
+        name: "news", 
+        props: {
+          videos: videoData,
+          autoplay: false
+        }
+      }, { message: response });
+
+      return { messages: [response] };
+    } else {
+      throw new Error("No videos found");
+    }
+    
+  } catch (error) {
+    console.error("[NewsNode] Error fetching news:", error);
+    
+    // Fallback with sample videos
+    const searchTopic = state.extractedTopic || extractSearchTopic(userMessage);
+    const fallbackVideos = createFallbackNewsData(searchTopic);
+    
+    const errorResponse = {
+      id: uuidv4(),
+      type: "ai" as const,
+      content: `Here are some sample videos about "${searchTopic}". Note: Using demo data due to network issues.`,
+    };
+
+    ui.push({ 
+      name: "news", 
+      props: {
+        videos: fallbackVideos,
+        autoplay: false
+      }
+    }, { message: errorResponse });
+
+    return { messages: [errorResponse] };
+  }
+}
+
+// Helper function to extract search topic from user message
+function extractSearchTopic(message: string): string {
+  // Clean the message first
+  const cleanMessage = message.trim();
+  
+  // Entertainment patterns - extract full content name
+  const entertainmentPatterns = [
+    // "Watch X song Y" or "Watch X from Y"
+    /watch\s+(.+)/i,
+    // "Play X song" or "Play X"
+    /play\s+(.+)/i,
+    // "X song from Y" or "X song Y"
+    /(.+\s+song\s+.+)/i,
+    // "X movie trailer" or "X trailer"
+    /(.+\s+(?:movie\s+)?trailer)/i,
+    // "X movie songs"
+    /(.+\s+movie\s+songs?)/i,
+    // Just "X song"
+    /(.+\s+song)$/i,
+  ];
+  
+  for (const pattern of entertainmentPatterns) {
+    const match = cleanMessage.match(pattern);
+    if (match && match[1]) {
+      // Clean up the extracted topic
+      return match[1]
+        .trim()
+        .replace(/[?.!]/g, '')
+        .replace(/\s+/g, ' ');
+    }
+  }
+  
+  // News/video patterns
+  const newsPatterns = [
+    /news\s+about\s+([^?.!,]+)/i,
+    /videos?\s+(?:about|on|of)\s+([^?.!,]+)/i,
+    /show\s+(?:me\s+)?(?:videos?|news)\s+(?:about|on|of)\s+([^?.!,]+)/i,
+    /recent\s+(?:news|videos?)\s+(?:about|on|of)\s+([^?.!,]+)/i,
+    /latest\s+(?:news|videos?)\s+(?:about|on|of)\s+([^?.!,]+)/i,
+    /search\s+(?:for\s+)?([^?.!,]+)/i,
+    /find\s+(?:videos?|news)\s+(?:about|on|of)\s+([^?.!,]+)/i,
+  ];
+  
+  for (const pattern of newsPatterns) {
+    const match = cleanMessage.match(pattern);
+    if (match && match[1]) {
+      return match[1].trim().replace(/[?.!]/g, '');
+    }
+  }
+  
+  // Fallback: Use the entire message as topic (removing common prefixes)
+  const fallbackMessage = cleanMessage
+    .replace(/^(show\s+me|find|search|get|watch|play)\s*/i, '')
+    .replace(/[?.!]/g, '')
+    .trim();
+  
+  if (fallbackMessage.length > 0) {
+    return fallbackMessage;
+  }
+  
+  return 'trending videos'; // Default fallback
+}
+
+// Search for YouTube videos using web search
+async function searchYouTubeVideos(searchTopic: string): Promise<Array<{id: string, videoId: string, title: string}>> {
+  const tavilySearch = new TavilySearchResults({ maxResults: 6 });
+  const searchQuery = `site:youtube.com "${searchTopic}" video`;
+  
+  const results = await tavilySearch.invoke(searchQuery);
+  const resultStr = typeof results === 'string' ? results : JSON.stringify(results);
+  
+  console.log("[YouTubeSearch] Search results:", resultStr);
+  
+  // Extract YouTube video IDs and titles from search results
+  const videoData: Array<{id: string, videoId: string, title: string}> = [];
+  
+  // Pattern to match YouTube URLs and extract video IDs
+  const youtubePatterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/g,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]+)/g,
+  ];
+  
+  const videoIds = new Set<string>();
+  
+  for (const pattern of youtubePatterns) {
+    let match;
+    while ((match = pattern.exec(resultStr)) !== null) {
+      const videoId = match[1];
+      if (videoId && videoId.length === 11 && !videoIds.has(videoId)) {
+        videoIds.add(videoId);
+      }
+    }
+  }
+  
+  // Extract titles from the search results
+  const titlePatterns = [
+    /"title":\s*"([^"]+)"/g,
+    /title["\']:\s*["\']([^"']+)["\']?/gi,
+    /<title[^>]*>([^<]+)<\/title>/gi,
+  ];
+  
+  const titles: string[] = [];
+  for (const pattern of titlePatterns) {
+    let match;
+    while ((match = pattern.exec(resultStr)) !== null) {
+      if (match[1] && match[1].trim().length > 10) {
+        titles.push(match[1].trim().replace(/\s+/g, ' '));
+      }
+    }
+  }
+  
+  // Combine video IDs with titles
+  const videoIdArray = Array.from(videoIds).slice(0, 5); // Limit to 5 videos
+  
+  videoIdArray.forEach((videoId, index) => {
+    const title = titles[index] || `${searchTopic} Video ${index + 1}`;
+    videoData.push({
+      id: uuidv4(),
+      videoId: videoId,
+      title: cleanTitle(title)
+    });
+  });
+  
+  // If no videos found, try a broader search
+  if (videoData.length === 0) {
+    const broadSearchQuery = `"${searchTopic}" YouTube`;
+    const broadResults = await tavilySearch.invoke(broadSearchQuery);
+    const broadResultStr = typeof broadResults === 'string' ? broadResults : JSON.stringify(broadResults);
+    
+    // Try to extract any YouTube references
+    const broadPatterns = [
+      /watch\?v=([a-zA-Z0-9_-]{11})/g,
+      /youtu\.be\/([a-zA-Z0-9_-]{11})/g,
+    ];
+    
+    for (const pattern of broadPatterns) {
+      let match;
+      while ((match = pattern.exec(broadResultStr)) !== null && videoData.length < 3) {
+        const videoId = match[1];
+        if (videoId && !videoIds.has(videoId)) {
+          videoIds.add(videoId);
+          videoData.push({
+            id: uuidv4(),
+            videoId: videoId,
+            title: `${searchTopic} - Video ${videoData.length + 1}`
+          });
+        }
+      }
+    }
+  }
+  
+  return videoData;
+}
+
+// Helper to clean video titles
+function cleanTitle(title: string): string {
+  // Remove common YouTube artifacts
+  return title
+    .replace(/\s*-\s*YouTube$/, '')
+    .replace(/\s*\|\s*YouTube$/, '')
+    .replace(/^Watch\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 100); // Limit length
+}
+
+// Create fallback news data when search fails
+function createFallbackNewsData(searchTopic: string): Array<{id: string, videoId: string, title: string}> {
+  // Popular educational/news video IDs that are likely to remain available
+  const fallbackVideos = [
+    { videoId: "dQw4w9WgXcQ", title: `Breaking: ${searchTopic} Updates` },
+    { videoId: "jNQXAC9IVRw", title: `Latest News on ${searchTopic}` },
+    { videoId: "ScMzIvxBSi4", title: `${searchTopic} - Deep Dive Analysis` },
+    { videoId: "ZbZSe6N_BXs", title: `Understanding ${searchTopic}` },
+    { videoId: "fJ9rUzIMcZQ", title: `${searchTopic} - What You Need to Know` },
+  ];
+  
+  return fallbackVideos.slice(0, 3).map((video) => ({
+    id: uuidv4(),
+    videoId: video.videoId,
+    title: video.title
+  }));
+}
+
+// General response node for non-weather/non-news queries
 async function generalNode(state: typeof AgentState.State) {
   console.log("[GeneralNode] Processing general request...");
   
@@ -860,12 +1182,15 @@ async function generalNode(state: typeof AgentState.State) {
 export const graph = new StateGraph(AgentState)
   .addNode("callModel", callModelNode)
   .addNode("weather", weatherNode)
+  .addNode("news", newsNode)
   .addNode("general", generalNode)
   .addEdge("__start__", "callModel")
   .addConditionalEdges("callModel", routeAfterClassification, {
     weather: "weather",
+    news: "news",
     general: "general",
   })
   .addEdge("weather", END)
+  .addEdge("news", END)
   .addEdge("general", END)
   .compile();

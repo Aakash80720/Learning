@@ -3,7 +3,6 @@
   "compilerOptions": {
     "jsx": "react",
     "outDir": "./dist",
-    "rootDir": "./src",
     "baseUrl": ".",
     "target": "ES2021",
     "lib": ["ES2021", "ES2022.Object", "DOM", "es2023"],
@@ -18,8 +17,11 @@
     "useDefineForClassFields": true,
     "strictPropertyInitialization": false,
     "allowJs": true,
-    "strict": true
+    "strict": true,
+    "paths": {
+      "@agent-ui/*": ["../agent-ui/*"]
+    }
   },
-  "include": ["src/"],
+  "include": ["src/", "../agent-ui/**/*"],
   "exclude": ["node_modules/", "dist"]
 }
