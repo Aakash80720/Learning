@@ -29,6 +29,8 @@ import { toast } from "sonner";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
+import { Canvas } from "./canvas";
+import { CanvasProvider } from "@/providers/Canvas";
 
 function StickyToBottomContent(props: {
   content: ReactNode;
@@ -67,7 +69,6 @@ function ScrollToBottom(props: { className?: string }) {
     </Button>
   );
 }
-
 
 export function Thread() {
   const [threadId, setThreadId] = useQueryState("threadId");
@@ -179,6 +180,7 @@ export function Thread() {
   );
 
   return (
+    <CanvasProvider>
     <div className="flex w-full h-screen overflow-hidden">
       <div className="relative lg:flex hidden">
         <motion.div
@@ -289,7 +291,7 @@ export function Thread() {
               </TooltipIconButton>
             </div>
 
-            <div className="absolute inset-x-0 top-full h-5 bg-gradient-to-b from-background to-background/0" />
+            <div className="absolute inset-x-0 top-full h-5 bg-linear-to-b from-background to-background/0" />
           </div>
         )}
 
@@ -411,6 +413,13 @@ export function Thread() {
           />
         </StickToBottom>
       </motion.div>
+
+      {/* Right Canvas Panel for Component Preview */}
+      <Canvas 
+        title="Preview" 
+        subtitle="Live Component"
+      />
     </div>
+    </CanvasProvider>
   );
 }

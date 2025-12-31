@@ -1,5 +1,6 @@
 import { parsePartialJson } from "@langchain/core/output_parsers";
 import { useStreamContext } from "@/providers/Stream";
+import { useCanvas } from "@/providers/Canvas";
 import { AIMessage, Checkpoint, Message } from "@langchain/langgraph-sdk";
 import { getContentString } from "../utils";
 import { BranchSwitcher, CommandBar } from "./shared";
@@ -8,7 +9,7 @@ import { LoadExternalComponent } from "@langchain/langgraph-sdk/react-ui";
 import { cn } from "@/lib/utils";
 import { ToolCalls, ToolResult } from "./tool-calls";
 import { MessageContentComplex } from "@langchain/core/messages";
-import { Fragment } from "react/jsx-runtime";
+import { Fragment, useEffect, useMemo, useRef } from "react";
 import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
 import { ThreadView } from "../agent-inbox";
 import { useQueryState, parseAsBoolean } from "nuqs";
@@ -22,28 +23,59 @@ function CustomComponent({
   thread: ReturnType<typeof useStreamContext>;
 }) {
   const { values } = useStreamContext();
-  const customComponents = values.ui?.filter(
-    (ui) => ui.metadata?.message_id === message.id,
-  );
+  const { setCanvasContent, setCanvasVisible } = useCanvas();
+  const processedRef = useRef(new Set<string>());
 
-  if (!customComponents?.length) return null;
+  // Memoize the custom components to prevent unnecessary re-renders
+  const customComponents = useMemo(() => {
+    return values.ui?.filter(
+      (ui) => ui.metadata?.message_id === message.id,
+    ) || [];
+  }, [values.ui, message.id]);
+
+  // Create a stable key for the components
+  const componentKey = useMemo(() => {
+    return customComponents.map(c => c.id).join(',');
+  }, [customComponents]);
+
+  // Send custom UI components to the Canvas instead of rendering in chat
+  useEffect(() => {
+    if (customComponents.length > 0 && componentKey && !processedRef.current.has(componentKey)) {
+      processedRef.current.add(componentKey);
+      
+      const canvasUI = (
+        <Fragment key={message.id}>
+          {customComponents.map((customComponent) => (
+            <LoadExternalComponent
+              key={customComponent.id}
+              stream={thread}
+              message={customComponent}
+              fallback={
+                <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4 animate-pulse">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/2"></div>
+                </div>
+              }
+              meta={{ ui: customComponent }}
+            />
+          ))}
+        </Fragment>
+      );
+      
+      setCanvasContent(canvasUI);
+      setCanvasVisible(true); // Auto-open canvas when UI component is received
+    }
+  }, [componentKey, customComponents, message.id, setCanvasContent, setCanvasVisible, thread]);
+
+  // Don't render anything in the chat - components go to Canvas
+  if (!customComponents.length) return null;
+  
+  // Show a small indicator that content is in the Canvas
   return (
-    <Fragment key={message.id}>
-      {customComponents.map((customComponent) => (
-        <LoadExternalComponent
-          key={customComponent.id}
-          stream={thread}
-          message={customComponent}
-          fallback={
-            <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4 animate-pulse max-w-sm">
-              <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-3/4 mb-2"></div>
-              <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/2"></div>
-            </div>
-          }
-          meta={{ ui: customComponent }}
-        />
-      ))}
-    </Fragment>
+    <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 rounded-lg px-3 py-2 border border-blue-200">
+      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+      <span>Interactive component available in Canvas →</span>
+    </div>
   );
 }
 

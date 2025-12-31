@@ -1,0 +1,545 @@
+/**
+ * Universal Canvas Design System
+ * A standardized, adaptable design framework for all Canvas components
+ */
+
+/* ==========================================
+   CANVAS GLOBAL VARIABLES & TOKENS
+   ========================================== */
+
+:root {
+  /* Canvas Layout */
+  --canvas-padding: 1.5rem;
+  --canvas-padding-mobile: 1rem;
+  --canvas-border-radius: 12px;
+  --canvas-border-radius-large: 16px;
+  
+  /* Canvas Colors */
+  --canvas-bg-primary: #ffffff;
+  --canvas-bg-secondary: #f8fafc;
+  --canvas-bg-tertiary: #f1f5f9;
+  --canvas-surface: #ffffff;
+  --canvas-surface-elevated: #ffffff;
+  
+  /* Canvas Gradients */
+  --canvas-gradient-subtle: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --canvas-gradient-blue: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  --canvas-gradient-purple: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  --canvas-gradient-emerald: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --canvas-gradient-orange: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  
+  /* Canvas Text Colors */
+  --canvas-text-primary: #0f172a;
+  --canvas-text-secondary: #475569;
+  --canvas-text-muted: #64748b;
+  --canvas-text-light: #94a3b8;
+  --canvas-text-on-dark: #ffffff;
+  
+  /* Canvas Borders & Shadows */
+  --canvas-border-color: #e2e8f0;
+  --canvas-border-color-light: #f1f5f9;
+  --canvas-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --canvas-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --canvas-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --canvas-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  
+  /* Canvas Spacing Scale */
+  --canvas-space-1: 0.25rem;
+  --canvas-space-2: 0.5rem;
+  --canvas-space-3: 0.75rem;
+  --canvas-space-4: 1rem;
+  --canvas-space-5: 1.25rem;
+  --canvas-space-6: 1.5rem;
+  --canvas-space-8: 2rem;
+  --canvas-space-10: 2.5rem;
+  --canvas-space-12: 3rem;
+  
+  /* Canvas Typography */
+  --canvas-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --canvas-font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  
+  /* Canvas Transitions */
+  --canvas-transition-fast: 0.15s ease;
+  --canvas-transition-normal: 0.25s ease;
+  --canvas-transition-slow: 0.35s ease;
+  
+  /* Canvas Breakpoints */
+  --canvas-breakpoint-sm: 640px;
+  --canvas-breakpoint-md: 768px;
+  --canvas-breakpoint-lg: 1024px;
+  --canvas-breakpoint-xl: 1280px;
+}
+
+/* ==========================================
+   CANVAS FOUNDATION CLASSES
+   ========================================== */
+
+.canvas-component {
+  width: 100%;
+  height: 100%;
+  font-family: var(--canvas-font-family);
+  color: var(--canvas-text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.canvas-container {
+  width: 100%;
+  height: 100%;
+  padding: var(--canvas-padding);
+  background: var(--canvas-bg-primary);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .canvas-container {
+    padding: var(--canvas-padding-mobile);
+  }
+}
+
+/* ==========================================
+   CANVAS LAYOUT SYSTEM
+   ========================================== */
+
+/* Header Component */
+.canvas-header {
+  flex-shrink: 0;
+  margin-bottom: var(--canvas-space-6);
+  padding-bottom: var(--canvas-space-4);
+  border-bottom: 1px solid var(--canvas-border-color-light);
+  display: flex;
+  justify-content: space-between;
+}
+
+.canvas-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--canvas-text-primary);
+  margin: 0 0 var(--canvas-space-2) 0;
+  line-height: 1.3;
+}
+
+.canvas-subtitle {
+  font-size: 0.875rem;
+  color: var(--canvas-text-secondary);
+  margin: 0;
+}
+
+.canvas-title-with-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--canvas-space-3);
+  flex-wrap: wrap;
+}
+
+.canvas-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--canvas-space-1) var(--canvas-space-3);
+  background: var(--canvas-gradient-blue);
+  color: var(--canvas-text-on-dark);
+  border-radius: var(--canvas-border-radius);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+/* Content Areas */
+.canvas-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.canvas-content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.canvas-content-grid {
+  display: grid;
+  gap: var(--canvas-space-6);
+}
+
+/* ==========================================
+   CANVAS CARD SYSTEM
+   ========================================== */
+
+.canvas-card {
+  background: var(--canvas-surface);
+  border: 1px solid var(--canvas-border-color);
+  border-radius: var(--canvas-border-radius);
+  padding: var(--canvas-space-6);
+  box-shadow: var(--canvas-shadow-sm);
+  transition: all var(--canvas-transition-normal);
+}
+
+.canvas-card:hover {
+  box-shadow: var(--canvas-shadow-md);
+  transform: translateY(-2px);
+}
+
+.canvas-card-elevated {
+  box-shadow: var(--canvas-shadow-lg);
+  border: none;
+}
+
+.canvas-card-gradient {
+  background: var(--canvas-gradient-subtle);
+  border: none;
+}
+
+.canvas-card-compact {
+  padding: var(--canvas-space-4);
+}
+
+.canvas-card-spacious {
+  padding: var(--canvas-space-8);
+}
+
+/* ==========================================
+   CANVAS CAROUSEL/SLIDER SYSTEM
+   ========================================== */
+
+.canvas-carousel {
+  position: relative;
+  width: 100%;
+}
+
+.canvas-carousel-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--canvas-border-radius);
+}
+
+.canvas-carousel-track {
+  display: flex;
+  gap: var(--canvas-space-4);
+  transition: transform var(--canvas-transition-normal);
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: var(--canvas-space-2) 0;
+}
+
+.canvas-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+.canvas-carousel-slide {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+/* Responsive carousel slides */
+.canvas-carousel-slide-auto {
+  flex: 0 0 auto;
+  width: clamp(280px, 30vw, 350px);
+}
+
+.canvas-carousel-slide-fixed {
+  flex: 0 0 300px;
+  width: 300px;
+}
+
+.canvas-carousel-slide-full {
+  flex: 0 0 100%;
+  width: 100%;
+}
+
+/* Carousel Navigation */
+.canvas-carousel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--canvas-space-4);
+}
+
+.canvas-carousel-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--canvas-surface-elevated);
+  border: 1px solid var(--canvas-border-color);
+  border-radius: 50%;
+  color: var(--canvas-text-secondary);
+  cursor: pointer;
+  transition: all var(--canvas-transition-fast);
+  box-shadow: var(--canvas-shadow-sm);
+}
+
+.canvas-carousel-button:hover {
+  background: var(--canvas-gradient-blue);
+  color: var(--canvas-text-on-dark);
+  border-color: transparent;
+  box-shadow: var(--canvas-shadow-md);
+}
+
+.canvas-carousel-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.canvas-carousel-button:disabled:hover {
+  background: var(--canvas-surface-elevated);
+  color: var(--canvas-text-secondary);
+  border-color: var(--canvas-border-color);
+}
+
+/* Carousel Dots */
+.canvas-carousel-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--canvas-space-2);
+}
+
+.canvas-carousel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--canvas-border-color);
+  cursor: pointer;
+  transition: all var(--canvas-transition-fast);
+}
+
+.canvas-carousel-dot:hover {
+  background: var(--canvas-text-muted);
+  transform: scale(1.2);
+}
+
+.canvas-carousel-dot-active {
+  background: var(--canvas-gradient-blue);
+  transform: scale(1.3);
+}
+
+/* ==========================================
+   CANVAS RESPONSIVE GRID SYSTEM
+   ========================================== */
+
+.canvas-grid {
+  display: grid;
+  gap: var(--canvas-space-4);
+}
+
+.canvas-grid-1 { grid-template-columns: 1fr; }
+.canvas-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.canvas-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.canvas-grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* Responsive grids */
+.canvas-grid-responsive {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.canvas-grid-responsive-sm {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.canvas-grid-responsive-lg {
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+}
+
+@media (max-width: 768px) {
+  .canvas-grid-2,
+  .canvas-grid-3,
+  .canvas-grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================
+   CANVAS UTILITY CLASSES
+   ========================================== */
+
+/* Spacing utilities */
+.canvas-mb-2 { margin-bottom: var(--canvas-space-2); }
+.canvas-mb-4 { margin-bottom: var(--canvas-space-4); }
+.canvas-mb-6 { margin-bottom: var(--canvas-space-6); }
+.canvas-mb-8 { margin-bottom: var(--canvas-space-8); }
+
+.canvas-mt-2 { margin-top: var(--canvas-space-2); }
+.canvas-mt-4 { margin-top: var(--canvas-space-4); }
+.canvas-mt-6 { margin-top: var(--canvas-space-6); }
+.canvas-mt-8 { margin-top: var(--canvas-space-8); }
+
+.canvas-p-2 { padding: var(--canvas-space-2); }
+.canvas-p-4 { padding: var(--canvas-space-4); }
+.canvas-p-6 { padding: var(--canvas-space-6); }
+.canvas-p-8 { padding: var(--canvas-space-8); }
+
+/* Text utilities */
+.canvas-text-sm { font-size: 0.875rem; }
+.canvas-text-base { font-size: 1rem; }
+.canvas-text-lg { font-size: 1.125rem; }
+.canvas-text-xl { font-size: 1.25rem; }
+.canvas-text-2xl { font-size: 1.5rem; }
+.canvas-text-3xl { font-size: 1.875rem; }
+
+.canvas-font-medium { font-weight: 500; }
+.canvas-font-semibold { font-weight: 600; }
+.canvas-font-bold { font-weight: 700; }
+
+.canvas-text-primary { color: var(--canvas-text-primary); }
+.canvas-text-secondary { color: var(--canvas-text-secondary); }
+.canvas-text-muted { color: var(--canvas-text-muted); }
+.canvas-text-light { color: var(--canvas-text-light); }
+
+/* Background utilities */
+.canvas-bg-subtle { background: var(--canvas-gradient-subtle); }
+.canvas-bg-blue { background: var(--canvas-gradient-blue); }
+.canvas-bg-purple { background: var(--canvas-gradient-purple); }
+.canvas-bg-emerald { background: var(--canvas-gradient-emerald); }
+.canvas-bg-orange { background: var(--canvas-gradient-orange); }
+
+/* Flexbox utilities */
+.canvas-flex { display: flex; }
+.canvas-flex-col { flex-direction: column; }
+.canvas-items-center { align-items: center; }
+.canvas-justify-center { justify-content: center; }
+.canvas-justify-between { justify-content: space-between; }
+.canvas-gap-2 { gap: var(--canvas-space-2); }
+.canvas-gap-4 { gap: var(--canvas-space-4); }
+.canvas-gap-6 { gap: var(--canvas-space-6); }
+
+/* Border utilities */
+.canvas-rounded { border-radius: var(--canvas-border-radius); }
+.canvas-rounded-lg { border-radius: var(--canvas-border-radius-large); }
+.canvas-border { border: 1px solid var(--canvas-border-color); }
+
+/* Shadow utilities */
+.canvas-shadow-sm { box-shadow: var(--canvas-shadow-sm); }
+.canvas-shadow-md { box-shadow: var(--canvas-shadow-md); }
+.canvas-shadow-lg { box-shadow: var(--canvas-shadow-lg); }
+
+/* Animation utilities */
+.canvas-transition { transition: all var(--canvas-transition-normal); }
+.canvas-transition-fast { transition: all var(--canvas-transition-fast); }
+.canvas-transition-slow { transition: all var(--canvas-transition-slow); }
+
+.canvas-hover-lift {
+  transition: transform var(--canvas-transition-normal);
+}
+
+.canvas-hover-lift:hover {
+  transform: translateY(-4px);
+}
+
+/* ==========================================
+   CANVAS LOADING STATES
+   ========================================== */
+
+.canvas-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--canvas-space-8);
+}
+
+.canvas-spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--canvas-border-color);
+  border-radius: 50%;
+  border-top-color: var(--canvas-gradient-blue);
+  animation: canvas-spin 1s linear infinite;
+}
+
+@keyframes canvas-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes canvas-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.canvas-skeleton {
+  background: linear-gradient(90deg, var(--canvas-bg-secondary) 25%, var(--canvas-bg-tertiary) 50%, var(--canvas-bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: canvas-shimmer 1.5s infinite;
+  border-radius: var(--canvas-border-radius);
+}
+
+@keyframes canvas-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* ==========================================
+   CANVAS EMPTY STATES
+   ========================================== */
+
+.canvas-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--canvas-space-12);
+  text-align: center;
+}
+
+.canvas-empty-icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: var(--canvas-space-4);
+  color: var(--canvas-text-light);
+}
+
+.canvas-empty-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--canvas-text-secondary);
+  margin: 0 0 var(--canvas-space-2) 0;
+}
+
+.canvas-empty-description {
+  color: var(--canvas-text-muted);
+  margin: 0;
+  max-width: 300px;
+}
+
+/* ==========================================
+   CANVAS RESPONSIVE BEHAVIOR
+   ========================================== */
+
+@media (max-width: 480px) {
+  .canvas-container {
+    padding: var(--canvas-space-4);
+  }
+  
+  .canvas-title {
+    font-size: 1.25rem;
+  }
+  
+  .canvas-card {
+    padding: var(--canvas-space-4);
+  }
+  
+  .canvas-carousel-slide-auto {
+    width: clamp(240px, 85vw, 280px);
+  }
+  
+  .canvas-carousel-slide-fixed {
+    flex: 0 0 240px;
+    width: 240px;
+  }
+}

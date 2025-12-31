@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './styles.css';
+import '../../../apps/web/src/styles/canvas-design-system.css';
 
 // Simple SVG icons to avoid lucide-react issues
 const SunIcon = () => (
@@ -217,28 +218,27 @@ export const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCi
   };
 
   return (
-    <div className="weather-component-wrapper">
-      <div className="weather-dashboard">
-        <div className="weather-container">
+    <div className="canvas-component">
+      <div className="canvas-container">
         {/* Header */}
-        <div className="weather-header">
-          <h1 className="weather-title">Weather Dashboard</h1>
-          <p className="weather-subtitle">Major Cities Weather Updates</p>
+        <div className="canvas-header canvas-header-gradient">
+          <h1 className="canvas-header-title">Weather Dashboard</h1>
+          <p className="canvas-header-subtitle">Major Cities Weather Updates</p>
         </div>
 
         {/* Search Bar */}
-        <div className="search-container">
-          <form onSubmit={handleSearch} className="search-form">
+        <div className="canvas-section">
+          <form onSubmit={handleSearch} className="canvas-search-form">
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search for a city..."
-              className="search-input"
+              className="canvas-input canvas-input-search"
             />
             <button 
               type="submit" 
-              className="search-button"
+              className="canvas-button canvas-button-icon canvas-search-button"
             >
               <SearchIcon />
             </button>
@@ -246,86 +246,87 @@ export const WeatherCarousel: React.FC<WeatherCarouselProps> = ({ cities: propCi
         </div>
 
         {/* Weather Cards Carousel */}
-        <div className="carousel-container">
-          {getSortedCities().length > 3 && (
-            <button 
-              onClick={prevSlide} 
-              className="carousel-button carousel-button-left"
-            >
-              <ChevronLeftIcon />
-            </button>
-          )}
-          
-          <div className="carousel-track">
-            {getVisibleCities().map((city) => (
-              <div key={city.id} className="carousel-slide">
-                <div className={`weather-card ${getBackgroundGradient(city.icon)}`}>
-                  {/* City Name */}
-                  <div className="card-header">
-                    <h2 className="city-name">
-                      {city.city}
-                      {isRecentlySearched(city.timestamp) && (
-                        <span className="recent-badge">NEW</span>
-                      )}
-                    </h2>
-                    <p className="country-name">{city.country}</p>
-                  </div>
-
-                  {/* Weather Icon */}
-                  <div className="icon-container">
-                    {getWeatherIcon(city.icon)}
-                  </div>
-
-                  {/* Temperature */}
-                  <div className="temp-container">
-                    <div className="temperature">{city.temp}°F</div>
-                    <p className="condition">{city.condition}</p>
-                  </div>
-
-                  {/* Weather Details */}
-                  <div className="details-container">
-                    <div className="detail-item">
-                      <DropletsIcon />
-                      <div>
-                        <p className="detail-label">Humidity</p>
-                        <p className="detail-value">{city.humidity}%</p>
-                      </div>
+        <div className="canvas-carousel">
+          <div className="canvas-carousel-container">
+            <div className="canvas-carousel-track weather-carousel-track">
+              {getVisibleCities().map((city) => (
+                <div key={city.id} className="canvas-carousel-slide canvas-carousel-slide-auto">
+                  <div className={`canvas-card weather-card ${getBackgroundGradient(city.icon)}`}>
+                    {/* City Name */}
+                    <div className="canvas-card-header weather-card-header">
+                      <h2 className="canvas-card-title weather-city-name">
+                        {city.city}
+                        {isRecentlySearched(city.timestamp) && (
+                          <span className="canvas-badge canvas-badge-accent weather-recent-badge">NEW</span>
+                        )}
+                      </h2>
+                      <p className="canvas-card-subtitle weather-country-name">{city.country}</p>
                     </div>
-                    <div className="detail-item">
-                      <WindIcon />
-                      <div>
-                        <p className="detail-label">Wind</p>
-                        <p className="detail-value">{city.windSpeed} mph</p>
+
+                    {/* Weather Icon */}
+                    <div className="weather-icon-container">
+                      {getWeatherIcon(city.icon)}
+                    </div>
+
+                    {/* Temperature */}
+                    <div className="weather-temp-container">
+                      <div className="weather-temperature">{city.temp}°F</div>
+                      <p className="weather-condition">{city.condition}</p>
+                    </div>
+
+                    {/* Weather Details */}
+                    <div className="canvas-grid canvas-grid-2 weather-details-grid">
+                      <div className="canvas-flex canvas-flex-center-start weather-detail-item">
+                        <DropletsIcon />
+                        <div>
+                          <p className="canvas-text-muted weather-detail-label">Humidity</p>
+                          <p className="canvas-text-primary weather-detail-value">{city.humidity}%</p>
+                        </div>
+                      </div>
+                      <div className="canvas-flex canvas-flex-center-start weather-detail-item">
+                        <WindIcon />
+                        <div>
+                          <p className="canvas-text-muted weather-detail-label">Wind</p>
+                          <p className="canvas-text-primary weather-detail-value">{city.windSpeed} mph</p>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
+          {/* Navigation */}
           {getSortedCities().length > 3 && (
-            <button 
-              onClick={nextSlide} 
-              className="carousel-button carousel-button-right"
-            >
-              <ChevronRightIcon />
-            </button>
+            <div className="canvas-carousel-nav">
+              <button 
+                onClick={prevSlide} 
+                className="canvas-carousel-button"
+              >
+                <ChevronLeftIcon />
+              </button>
+              
+              <div className="canvas-carousel-dots">
+                {getSortedCities().map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentIndex(idx)}
+                    className={`canvas-carousel-dot ${idx === currentIndex ? 'canvas-carousel-dot-active' : ''}`}
+                  />
+                ))}
+              </div>
+              
+              <button 
+                onClick={nextSlide} 
+                className="canvas-carousel-button"
+              >
+                <ChevronRightIcon />
+              </button>
+            </div>
           )}
         </div>
-
-        {/* Dots indicator */}
-        <div className="dots-container">
-          {getSortedCities().map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrentIndex(idx)}
-              className={`dot ${idx === currentIndex ? 'dot-active' : ''}`}
-            />
-          ))}
-        </div>
       </div>
-    </div>
     </div>
   );
 };
